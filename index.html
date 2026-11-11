@@ -1,5 +1,5 @@
 <!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Compras Grupo Slots</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="color-scheme" content="dark"><meta name="theme-color" content="#031c24">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="color-scheme" content="dark"><meta name="theme-color" content="#031c24"><link rel="manifest" href="manifest.json"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"><meta name="mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400..800,100&display=swap">
 <style>
 :root{--a:#2fe0c8;--b:#0b8f9c;--card:rgba(10,60,72,.55);--tx:#e6fffb;--mut:#8fc7c4;--f:'Recoleta','Fraunces',Georgia,serif;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -29,7 +29,7 @@ footer{text-align:center;color:var(--mut);font-size:.85rem;letter-spacing:.04em;
 <button class="btn" id="rb" style="margin:16px 0 0" onclick="reg()">Enviar código</button></div></section>
 
 <section id="home" class="hide"><h1>Solicitudes de compra</h1><p class="s" id="hi">Cargá tu pedido con la voz.</p>
-<div class="card"><button class="btn g" onclick="go('man')">📖 Ver indicaciones</button><button class="btn" onclick="go('frm')" style="margin:0">🎙️ Ir al formulario de carga</button></div></section>
+<div class="card"><button class="btn g" onclick="go('man')">📖 Ver indicaciones</button><button class="btn" onclick="go('frm')" style="margin:0">🎙️ Ir al formulario de carga</button></div><button class="btn g hide" id="inst" onclick="instalar()">📲 Instalar en este celular</button><p class="note"><a href="#" onclick="salir();return false" style="color:var(--mut)">¿No sos vos? Cambiar usuario</a></p></section>
 
 <section id="man" class="hide"><h1>Cómo usar la aplicación</h1><div class="card"><ol>
 <li>Entrá al <b>formulario de carga</b>.</li><li>Tocá el 🎙️ para empezar a hablar y tocalo de nuevo para terminar. Ejemplo: “Necesito 50 filtros de aceite para Obras y Mantenimiento, se rompió un camión”.</li>
@@ -40,8 +40,8 @@ footer{text-align:center;color:var(--mut);font-size:.85rem;letter-spacing:.04em;
 <section id="frm" class="hide"><h1>Nueva solicitud</h1><div class="card">
 <label>Solicitante</label><input id="usr" readonly>
 <label>Material o servicio y especificaciones</label><div class="f"><textarea id="mat" placeholder="Hablá o escribí…"></textarea><button class="mic" data-t="mat" title="Dictar">🎙️</button></div>
-<label>Centro de costo <span class="tag">automático · editable</span></label><select id="cc" onchange="aut()"></select>
-<label>Rubro</label><input id="rub">
+<label>Centro de costo <span class="tag">automático · editable</span></label><select id="cc" onchange="manCC=true;aut()"></select>
+<label>Rubro</label><input id="rub" oninput="manRub=true">
 <label>Motivo de la urgencia</label><div class="f"><textarea id="urg" placeholder="Hablá o escribí…"></textarea><button class="mic" data-t="urg" title="Dictar">🎙️</button></div>
 <label>Autorizante</label><input id="aut" readonly placeholder="Se completa automáticamente"></div>
 <button class="btn" id="env" onclick="enviar()">Enviar solicitud</button><button class="btn g" onclick="go('home')">← Inicio</button><p class="note" id="msg"></p></section>
@@ -58,11 +58,12 @@ enviarCodigo:e=>({ok:true}),verificarCodigo:(e,c)=>({ok:c==="123456"}),enviarSol
 async function call(f,...a){if(GS)return new Promise((ok,ko)=>{const r=google.script.run.withSuccessHandler(ok).withFailureHandler(ko);r[f](...a)});
 if(!API)return DEMO[f](...a);const r=await fetch(API,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({fn:f,args:a})});const j=await r.json();if(!j.ok)throw new Error(j.error);return j.data}
 function go(s){["reg","home","man","frm","done"].forEach(i=>$(i).classList.toggle("hide",i!==s));scrollTo(0,0)}
-const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+const store={get:k=>{try{const v=localStorage.getItem(k);if(v)return v}catch(e){}const m=document.cookie.match(new RegExp("(?:^|; )"+k+"=([^;]*)"));return m?decodeURIComponent(m[1]):null},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}document.cookie=k+"="+encodeURIComponent(v)+";max-age=63072000;path=/;SameSite=Lax"}};
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 const nombre=e=>e.split("@")[0].split(/[._-]/).filter(Boolean).map(w=>w[0].toUpperCase()+w.slice(1)).join(" ");
 let C=[],EM=store.get("slots_email")||"";
 function aut(){const x=C.find(c=>c.c===$("cc").value);$("aut").value=x?x.a:""}
-async function init(){C=await call("getCentros");$("cc").innerHTML='<option value="">— Elegí un centro de costo —</option>'+C.map(c=>`<option>${c.c}</option>`).join("");
+async function init(){try{C=await call("getCentros")}catch(e){alert("No se pudo conectar. Revisá tu internet.");C=[]}$("cc").innerHTML='<option value="">— Elegí un centro de costo —</option>'+C.map(c=>`<option>${c.c}</option>`).join("");
 if(!GS&&!API)$("msg").textContent="Modo demostración: datos de ejemplo, sin envío real (código de prueba 123456).";
 if(EM)entrar();else go("reg")}
 function entrar(){$("usr").value=nombre(EM)+" ("+EM+")";$("hi").textContent="Hola, "+nombre(EM).split(" ")[0]+". Cargá tu pedido con la voz.";go("home")}
@@ -70,8 +71,17 @@ async function reg(){const e=$("em").value.trim().toLowerCase(),m=$("msg");
 if(!DOM.some(d=>e.endsWith("@"+d))){alert("Usá tu mail corporativo (@gruposlots.com.ar o @epic-hoteles.com.ar).");return}
 if($("cd").classList.contains("hide")){$("rb").disabled=true;try{await call("enviarCodigo",e);$("cd").classList.remove("hide");$("rb").textContent="Verificar";$("em").readOnly=true}catch(x){alert("No se pudo enviar el código.")}$("rb").disabled=false;return}
 const r=await call("verificarCodigo",e,$("co").value.trim());if(r.ok){EM=e;store.set("slots_email",e);entrar()}else alert("Código incorrecto.")}
-async function ia(){const t=$("mat").value.trim();if(!t)return;$("msg").textContent="Completando centro de costo…";try{const r=await call("clasificar",t,C);if(r.centro)$("cc").value=r.centro;$("rub").value=r.rubro||"";aut();$("msg").textContent=r.ia===false?"La IA no respondió: revisá centro y rubro.":""}catch(e){$("msg").textContent="Elegí el centro de costo de la lista."}}
-$("mat").onchange=ia;
+let manCC=false,manRub=false,iaN=0,lastT="",tm;
+async function ia(){const t=$("mat").value.trim();if(t.length<6||t===lastT)return;const n=++iaN,m=$("msg");m.textContent="Analizando tu pedido…";
+try{const r=await call("clasificar",t,C);if(n!==iaN)return;if(r.centro&&!manCC){$("cc").value=r.centro;aut()}if(r.rubro&&!manRub)$("rub").value=r.rubro;
+if(r.ia===false)m.textContent="IA no disponible ("+(r.motivo||"sin detalle")+"): sugerencia automática, revisala.";else{m.textContent="";lastT=t}}
+catch(e){if(n===iaN)m.textContent="No se pudo analizar ("+(e.message||e)+"). Elegí el centro de la lista."}}
+$("mat").addEventListener("input",()=>{clearTimeout(tm);tm=setTimeout(ia,1600)});$("mat").addEventListener("change",ia);
+let dp=null;addEventListener("beforeinstallprompt",e=>{e.preventDefault();dp=e;$("inst").classList.remove("hide")});
+function instalar(){if(dp){dp.prompt();dp=null;$("inst").classList.add("hide")}}
+addEventListener("appinstalled",()=>$("inst").classList.add("hide"));
+if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
+function salir(){store.set("slots_email","");EM="";$("em").value="";$("em").readOnly=false;$("cd").classList.add("hide");$("rb").textContent="Enviar código";go("reg")}
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let rec=null;
 document.querySelectorAll(".mic").forEach(b=>b.onclick=()=>{
 if(!SR){$("msg").textContent="Este navegador no permite dictado: escribí a mano.";return}
@@ -79,7 +89,7 @@ if(rec){rec.stop();return}
 const el=$(b.dataset.t),base=el.value?el.value+" ":"";rec=new SR();rec.lang="es-AR";rec.interimResults=true;rec.continuous=true;b.classList.add("on");
 rec.onresult=e=>{let s="";for(const r of e.results)s+=r[0].transcript;el.value=base+s};
 rec.onerror=()=>{};rec.onend=()=>{b.classList.remove("on");rec=null;if(el.id==="mat")ia()};try{rec.start()}catch(e){rec=null}});
-async function enviar(){const d={usuario:$("usr").value,centro:$("cc").value,rubro:$("rub").value.trim(),detalle:$("mat").value.trim(),urgencia:$("urg").value.trim(),autorizante:$("aut").value};
+async function enviar(){if(!$("cc").value&&$("mat").value.trim())await ia();const d={usuario:$("usr").value,centro:$("cc").value,rubro:$("rub").value.trim(),detalle:$("mat").value.trim(),urgencia:$("urg").value.trim(),autorizante:$("aut").value};
 if(!d.centro||!d.detalle||!d.urgencia){$("msg").textContent="Completá material, centro de costo y motivo de la urgencia.";return}
 $("env").disabled=true;try{await call("enviarSolicitud",d);$("dm").textContent="Se notificó a "+d.autorizante+". Te avisaremos al decidir.";go("done")}catch(e){$("msg").textContent="Error al enviar. Reintentá.";$("env").disabled=false}}
 init();
