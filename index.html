@@ -1,5 +1,5 @@
 <!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Compras Grupo Slots</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="color-scheme" content="dark"><meta name="theme-color" content="#031c24"><link rel="manifest" href="manifest.json"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"><meta name="mobile-web-app-capable" content="yes">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="color-scheme" content="dark"><meta name="theme-color" content="#031c24"><link rel="manifest" href="manifest.json"><script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"><meta name="mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400..800,100&display=swap">
 <style>
 :root{--a:#2fe0c8;--b:#0b8f9c;--card:rgba(10,60,72,.55);--tx:#e6fffb;--mut:#8fc7c4;--f:'Recoleta','Fraunces',Georgia,serif;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -29,7 +29,7 @@ footer{text-align:center;color:var(--mut);font-size:.85rem;letter-spacing:.04em;
 <button class="btn" id="rb" style="margin:16px 0 0" onclick="reg()">Ingresar</button></div></section>
 
 <section id="home" class="hide"><h1>Solicitudes de compra</h1><p class="s" id="hi">Cargá tu pedido con la voz.</p>
-<div class="card"><button class="btn g" onclick="go('man')">📖 Ver indicaciones</button><button class="btn" onclick="go('frm')" style="margin:0">🎙️ Ir al formulario de carga</button></div><button class="btn g hide" id="inst" onclick="instalar()">📲 Instalar en este celular</button><p class="note"><a href="#" onclick="salir();return false" style="color:var(--mut)">¿No sos vos? Cambiar usuario</a></p></section>
+<div class="card"><button class="btn g" onclick="go('man')">📖 Ver indicaciones</button><button class="btn" onclick="go('frm')" style="margin:0">🎙️ Ir al formulario de carga</button></div><div class="card hide" id="pbox"><button class="btn g" style="margin:0" onclick="activarAvisos()">🔔 Activar avisos de solicitudes</button><p class="note" id="pmsg" style="margin:10px 0 0"></p></div><button class="btn g hide" id="inst" onclick="instalar()">📲 Instalar en este celular</button><p class="note"><a href="#" onclick="salir();return false" style="color:var(--mut)">¿No sos vos? Cambiar usuario</a></p></section>
 
 <section id="man" class="hide"><h1>Cómo usar la aplicación</h1><div class="card"><ol>
 <li>Entrá al <b>formulario de carga</b>.</li><li>Tocá el 🎙️ para empezar a hablar y tocalo de nuevo para terminar. Ejemplo: “Necesito 50 filtros de aceite para Obras y Mantenimiento, se rompió un camión”.</li>
@@ -54,13 +54,13 @@ const $=i=>document.getElementById(i),DOM=["gruposlots.com.ar","epic-hoteles.com
 const store={get:k=>{try{const v=localStorage.getItem(k);if(v)return v}catch(e){}const m=document.cookie.match(new RegExp("(?:^|; )"+k+"=([^;]*)"));return m?decodeURIComponent(m[1]):null},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}document.cookie=k+"="+encodeURIComponent(v)+";max-age=63072000;path=/;SameSite=Lax"}};
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 const nombre=e=>e.split("@")[0].split(/[._-]/).filter(Boolean).map(w=>w[0].toUpperCase()+w.slice(1)).join(" ");
-let C=[],H=[],HT=[],EM=store.get("slots_email")||"",TK=store.get("slots_token")||"";
+let ES_AUT=false,OS_ID="",osOK=false,C=[],H=[],HT=[],EM=store.get("slots_email")||"",TK=store.get("slots_token")||"";
 function go(s){["reg","home","man","frm","done"].forEach(i=>$(i).classList.toggle("hide",i!==s));scrollTo(0,0)}
 async function call(f,...a){const ac=new AbortController(),to=setTimeout(()=>ac.abort(),40000);
 try{const r=await fetch(API,{method:"POST",signal:ac.signal,headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({fn:f,args:f==="verificarClave"?a:[EM,TK,...a]})});
 const j=await r.json();if(!j.ok){if(/AUTH/.test(j.error)){salir("Tu acceso venció. Ingresá de nuevo.");throw new Error("acceso vencido")}throw new Error(String(j.error).replace(/^Error: /,""))}return j.data}
 catch(e){if(e.name==="AbortError")throw new Error("el servidor tardó demasiado");throw e}finally{clearTimeout(to)}}
-function salir(msg){store.set("slots_email","");store.set("slots_token","");EM="";TK="";$("cl").value="";go("reg");if(msg)alert(msg)}
+function salir(msg){try{window.OneSignalDeferred&&OneSignalDeferred.push(o=>o.logout())}catch(e){}store.set("slots_email","");store.set("slots_token","");EM="";TK="";$("cl").value="";go("reg");if(msg)alert(msg)}
 function aut(){const x=C.find(c=>c.c===$("cc").value);$("aut").value=x?x.a:""}
 const sin=s=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
 const STOP=new Set("para los las del con una uno por que necesito necesitamos quiero favor pedido compra comprar urgente unidades unidad villa mercedes hay falta".split(" "));
@@ -74,9 +74,9 @@ C.forEach(c=>{const n=toks(c.c).filter(w=>q.includes(w)).length;if(n)sc[c.c]=(sc
 H.forEach((h,i)=>{const n=HT[i].filter(w=>q.includes(w)).length;if(n){if(C.some(c=>c.c===h[0]))sc[h[0]]=(sc[h[0]]||0)+n;if(RUBROS.includes(h[1]))rb[h[1]]=(rb[h[1]]||0)+n}});
 const top=o=>Object.entries(o).sort((a,b)=>b[1]-a[1])[0],c=top(sc),r=top(rb),d=RUB.find(x=>x[1].test(sin(t)));
 return{centro:c?c[0]:"",fuerte:c?c[1]:0,rubro:r?r[0]:(d?d[0]:"")}}
-async function cargar(){const r=await call("getCentros");C=r.centros;H=r.hist||[];HT=H.map(h=>toks(h[2]));
+async function cargar(){const r=await call("getCentros");C=r.centros;H=r.hist||[];ES_AUT=!!r.aut;OS_ID=r.os||"";HT=H.map(h=>toks(h[2]));
 $("cc").innerHTML='<option value="">— Elegí un centro de costo —</option>'+C.map(c=>`<option>${c.c}</option>`).join("");aut()}
-function entrar(){$("usr").value=nombre(EM)+" ("+EM+")";$("hi").textContent="Hola, "+nombre(EM).split(" ")[0]+". Cargá tu pedido con la voz.";go("home")}
+function entrar(){$("pbox").classList.toggle("hide",!(ES_AUT&&OS_ID));iniciarPush();$("usr").value=nombre(EM)+" ("+EM+")";$("hi").textContent="Hola, "+nombre(EM).split(" ")[0]+". Cargá tu pedido con la voz.";go("home")}
 async function init(){if(!EM||!TK){go("reg");return}try{await cargar();entrar()}catch(e){if(EM&&TK){$("usr").value=nombre(EM)+" ("+EM+")";go("home");$("hi").textContent="Sin conexión con el servidor. Reintentá en un momento."}}}
 async function reg(){const e=$("em").value.trim().toLowerCase(),k=$("cl").value.trim();
 if(!DOM.some(d=>e.endsWith("@"+d))){alert("Usá tu mail corporativo (@gruposlots.com.ar o @epic-hoteles.com.ar).");return}
@@ -109,5 +109,10 @@ let dp=null;addEventListener("beforeinstallprompt",e=>{e.preventDefault();dp=e;$
 function instalar(){if(dp){dp.prompt();dp=null;$("inst").classList.add("hide")}}
 addEventListener("appinstalled",()=>$("inst").classList.add("hide"));
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
+function iniciarPush(){if(osOK||!ES_AUT||!OS_ID)return;osOK=true;window.OneSignalDeferred=window.OneSignalDeferred||[];
+OneSignalDeferred.push(async OneSignal=>{try{await OneSignal.init({appId:OS_ID,serviceWorkerPath:"sw.js",serviceWorkerParam:{scope:location.pathname.replace(/[^/]*$/,"")},notifyButton:{enable:false}});
+await OneSignal.login(EM);if(OneSignal.Notifications.permission&&OneSignal.User.PushSubscription.optedIn)$("pmsg").textContent="✅ Avisos activados en este celular."}catch(e){$("pmsg").textContent="No se pudo preparar los avisos ("+(e.message||e)+")"}})}
+function activarAvisos(){window.OneSignalDeferred=window.OneSignalDeferred||[];OneSignalDeferred.push(async OneSignal=>{const m=$("pmsg");try{await OneSignal.login(EM);await OneSignal.Notifications.requestPermission();
+if(OneSignal.Notifications.permission){await OneSignal.User.PushSubscription.optIn();m.textContent="✅ Avisos activados en este celular."}else m.textContent="No se activaron: permití las notificaciones de este sitio en Chrome."}catch(e){m.textContent="No se pudo activar ("+(e.message||e)+")"}})}
 init();
 </script></body></html>
