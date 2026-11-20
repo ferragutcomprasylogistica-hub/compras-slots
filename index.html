@@ -76,7 +76,7 @@ const top=o=>Object.entries(o).sort((a,b)=>b[1]-a[1])[0],c=top(sc),r=top(rb),d=R
 return{centro:c?c[0]:"",fuerte:c?c[1]:0,rubro:r?r[0]:(d?d[0]:"")}}
 async function cargar(){const r=await call("getCentros");C=r.centros;H=r.hist||[];ES_AUT=!!r.aut;OS_ID=r.os||"";HT=H.map(h=>toks(h[2]));
 $("cc").innerHTML='<option value="">— Elegí un centro de costo —</option>'+C.map(c=>`<option>${c.c}</option>`).join("");aut()}
-function entrar(){$("pbox").classList.toggle("hide",!(ES_AUT&&OS_ID));iniciarPush();$("usr").value=nombre(EM)+" ("+EM+")";$("hi").textContent="Hola, "+nombre(EM).split(" ")[0]+". Cargá tu pedido con la voz.";go("home")}
+function entrar(){$("pbox").classList.toggle("hide",!(ES_AUT&&OS_ID));if(ES_AUT&&OS_ID)iniciarPush();else registrarSW();$("usr").value=nombre(EM)+" ("+EM+")";$("hi").textContent="Hola, "+nombre(EM).split(" ")[0]+". Cargá tu pedido con la voz.";go("home")}
 async function init(){if(!EM||!TK){go("reg");return}try{await cargar();entrar()}catch(e){if(EM&&TK){$("usr").value=nombre(EM)+" ("+EM+")";go("home");$("hi").textContent="Sin conexión con el servidor. Reintentá en un momento."}}}
 async function reg(){const e=$("em").value.trim().toLowerCase(),k=$("cl").value.trim();
 if(!DOM.some(d=>e.endsWith("@"+d))){alert("Usá tu mail corporativo (@gruposlots.com.ar o @epic-hoteles.com.ar).");return}
@@ -108,9 +108,9 @@ catch(e){$("msg").textContent="No se pudo enviar ("+(e.message||e)+"). Reintent�
 let dp=null;addEventListener("beforeinstallprompt",e=>{e.preventDefault();dp=e;$("inst").classList.remove("hide")});
 function instalar(){if(dp){dp.prompt();dp=null;$("inst").classList.add("hide")}}
 addEventListener("appinstalled",()=>$("inst").classList.add("hide"));
-if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
+function registrarSW(){if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{})}
 function iniciarPush(){if(osOK||!ES_AUT||!OS_ID)return;osOK=true;window.OneSignalDeferred=window.OneSignalDeferred||[];
-OneSignalDeferred.push(async OneSignal=>{try{await OneSignal.init({appId:OS_ID,serviceWorkerPath:"sw.js",serviceWorkerParam:{scope:location.pathname.replace(/[^/]*$/,"")},notifyButton:{enable:false}});
+OneSignalDeferred.push(async OneSignal=>{try{await OneSignal.init({appId:OS_ID,serviceWorkerPath:location.pathname.replace(/[^/]*$/,"").replace(/^\//,"")+"sw.js",serviceWorkerParam:{scope:location.pathname.replace(/[^/]*$/,"")},notifyButton:{enable:false}});
 await OneSignal.login(EM);if(OneSignal.Notifications.permission&&OneSignal.User.PushSubscription.optedIn)$("pmsg").textContent="✅ Avisos activados en este celular."}catch(e){$("pmsg").textContent="No se pudo preparar los avisos ("+(e.message||e)+")"}})}
 function activarAvisos(){window.OneSignalDeferred=window.OneSignalDeferred||[];OneSignalDeferred.push(async OneSignal=>{const m=$("pmsg");try{await OneSignal.login(EM);await OneSignal.Notifications.requestPermission();
 if(OneSignal.Notifications.permission){await OneSignal.User.PushSubscription.optIn();m.textContent="✅ Avisos activados en este celular."}else m.textContent="No se activaron: permití las notificaciones de este sitio en Chrome."}catch(e){m.textContent="No se pudo activar ("+(e.message||e)+")"}})}
