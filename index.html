@@ -46,8 +46,11 @@ footer{text-align:center;color:var(--mut);font-size:.85rem;letter-spacing:.04em;
 <label>Autorizante</label><input id="aut" readonly placeholder="Se completa automáticamente"></div>
 <button class="btn" id="env" onclick="enviar()">Enviar solicitud</button><button class="btn g" onclick="go('home')">← Inicio</button><p class="note" id="msg"></p></section>
 
+<section id="dec" class="hide"><h1>Solicitud para autorizar</h1><div class="card"><p class="note" id="dst" style="text-align:left">Cargando…</p>
+<div id="ddata" class="hide"><label>Autoriza</label><div id="d1"></div><label>Solicitante</label><div id="d2"></div><label>Centro de costo</label><div id="d3"></div><label>Rubro</label><div id="d4"></div><label>Detalle</label><div id="d5"></div><label>Motivo de la urgencia</label><div id="d6"></div></div></div>
+<div id="dbtn" class="hide"><button class="btn" onclick="decidirW('ok')">✅ Aprobar compra</button><button class="btn g" style="border-color:#ff7b8a;color:#ff7b8a" onclick="decidirW('no')">❌ No aprobar</button></div></section>
 <section id="done" class="hide"><div class="card ok"><div style="font-size:3rem">✅</div><h1>Solicitud enviada</h1><p class="s" id="dm"></p><button class="btn" onclick="location.reload()">Cargar otra</button></div></section>
-<footer>Compras y Logística Grupo Slots</footer><div style="text-align:center;font-size:.7rem;opacity:.45;padding-bottom:8px">v3 · 19/11</div></div>
+<footer>Compras y Logística Grupo Slots</footer><div style="text-align:center;font-size:.7rem;opacity:.45;padding-bottom:8px">v4 · 19/11</div></div>
 <script>
 const API="https://script.google.com/macros/s/AKfycbyBDVoSEJo52nSE-1P9SLwM1PMzF9-lRRmxbrusaGscaL3r-nwKnur1G0BhDhd2Pww/exec";
 const $=i=>document.getElementById(i),DOM=["gruposlots.com.ar","epic-hoteles.com.ar"];
@@ -55,9 +58,10 @@ const store={get:k=>{try{const v=localStorage.getItem(k);if(v)return v}catch(e){
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 const nombre=e=>e.split("@")[0].split(/[._-]/).filter(Boolean).map(w=>w[0].toUpperCase()+w.slice(1)).join(" ");
 let ES_AUT=false,OS_ID="",osOK=false,C=[],H=[],HT=[],EM=store.get("slots_email")||"",TK=store.get("slots_token")||"";
-function go(s){["reg","home","man","frm","done"].forEach(i=>$(i).classList.toggle("hide",i!==s));scrollTo(0,0)}
+function go(s){["reg","home","man","frm","done","dec"].forEach(i=>$(i).classList.toggle("hide",i!==s));scrollTo(0,0)}
+const QS=new URLSearchParams(location.search),SINAUTH=["verificarClave","verSolicitudApi","decidirApi"];
 async function call(f,...a){const ac=new AbortController(),to=setTimeout(()=>ac.abort(),40000);
-try{const r=await fetch(API,{method:"POST",signal:ac.signal,headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({fn:f,args:f==="verificarClave"?a:[EM,TK,...a]})});
+try{const r=await fetch(API,{method:"POST",signal:ac.signal,headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({fn:f,args:SINAUTH.includes(f)?a:[EM,TK,...a]})});
 const j=await r.json();if(!j.ok){if(/AUTH/.test(j.error)){salir("Tu acceso venció. Ingresá de nuevo.");throw new Error("acceso vencido")}throw new Error(String(j.error).replace(/^Error: /,""))}return j.data}
 catch(e){if(e.name==="AbortError")throw new Error("el servidor tardó demasiado");throw e}finally{clearTimeout(to)}}
 function salir(msg){try{window.OneSignalDeferred&&OneSignalDeferred.push(o=>o.logout())}catch(e){}store.set("slots_email","");store.set("slots_token","");EM="";TK="";$("cl").value="";go("reg");if(msg)alert(msg)}
@@ -77,7 +81,15 @@ return{centro:c?c[0]:"",fuerte:c?c[1]:0,rubro:r?r[0]:(d?d[0]:"")}}
 async function cargar(){const r=await call("getCentros");C=r.centros;H=r.hist||[];ES_AUT=!!r.aut;OS_ID=r.os||"";HT=H.map(h=>toks(h[2]));
 $("cc").innerHTML='<option value="">— Elegí un centro de costo —</option>'+C.map(c=>`<option>${c.c}</option>`).join("");aut()}
 function entrar(){$("pbox").classList.toggle("hide",!(ES_AUT&&OS_ID));if(ES_AUT&&OS_ID)iniciarPush();else registrarSW();$("usr").value=nombre(EM)+" ("+EM+")";$("hi").textContent="Hola, "+nombre(EM).split(" ")[0]+". Cargá tu pedido con la voz.";go("home")}
-async function init(){if(!EM||!TK){go("reg");return}try{await cargar();entrar()}catch(e){if(EM&&TK){$("usr").value=nombre(EM)+" ("+EM+")";go("home");$("hi").textContent="Sin conexión con el servidor. Reintentá en un momento."}}}
+async function verDec(){go("dec");try{const r=await call("verSolicitudApi",QS.get("id"),QS.get("t"));
+if(r.estado!=="Pendiente"){$("dst").textContent="Esta solicitud ya fue resuelta: "+r.estado+".";return}
+$("d1").textContent=r.autoriza;$("d2").textContent=r.solicitante;$("d3").textContent=r.centro;$("d4").textContent=r.rubro||"—";$("d5").textContent=r.detalle;$("d6").textContent=r.urgencia;
+$("dst").textContent="Revisá los datos y elegí una opción.";$("ddata").classList.remove("hide");$("dbtn").classList.remove("hide")}
+catch(e){$("dst").textContent="No se pudo abrir la solicitud ("+(e.message||e)+")."}}
+async function decidirW(a){$("dbtn").classList.add("hide");$("dst").textContent="Registrando…";
+try{const r=await call("decidirApi",QS.get("id"),QS.get("t"),a);$("ddata").classList.add("hide");$("dst").textContent=(r.ok?(r.estado==="Aprobada"?"✅ ":"❌ "):"")+r.msg}
+catch(e){$("dst").textContent="No se pudo registrar ("+(e.message||e)+"). Reintentá.";$("dbtn").classList.remove("hide")}}
+async function init(){if(QS.get("id")&&QS.get("t")){verDec();return}if(!EM||!TK){go("reg");return}try{await cargar();entrar()}catch(e){if(EM&&TK){$("usr").value=nombre(EM)+" ("+EM+")";go("home");$("hi").textContent="Sin conexión con el servidor. Reintentá en un momento."}}}
 async function reg(){const e=$("em").value.trim().toLowerCase(),k=$("cl").value.trim();
 if(!DOM.some(d=>e.endsWith("@"+d))){alert("Usá tu mail corporativo (@gruposlots.com.ar o @epic-hoteles.com.ar).");return}
 if(!k){alert("Escribí la clave de acceso.");return}
