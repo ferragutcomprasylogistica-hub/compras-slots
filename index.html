@@ -28,7 +28,7 @@ footer{text-align:center;color:var(--mut);font-size:.85rem;letter-spacing:.04em;
 <label>Clave de acceso</label><input id="cl" type="password" autocomplete="current-password" placeholder="Te la da Compras y Logística">
 <button class="btn" id="rb" style="margin:16px 0 0" onclick="reg()">Ingresar</button></div></section>
 
-<section id="home" class="hide"><h1>Solicitudes de compra</h1><p class="s" id="hi">Cargá tu pedido con la voz.</p>
+<section id="home" class="hide"><h1>Solicitudes de compra</h1><p class="s" id="hi">Cargá tu pedido con la voz.</p><div class="card hide" id="abox"><button class="btn g" id="abtn" onclick="abrirPend()" style="margin:0">📥 Solicitudes por autorizar</button></div>
 <div class="card"><button class="btn g" onclick="go('man')">📖 Ver indicaciones</button><button class="btn" onclick="go('frm')" style="margin:0">🎙️ Ir al formulario de carga</button></div><div class="card hide" id="pbox"><button class="btn g" style="margin:0" onclick="activarAvisos()">🔔 Activar avisos de solicitudes</button><p class="note" id="pmsg" style="margin:10px 0 0"></p></div><button class="btn g hide" id="inst" onclick="instalar()">📲 Instalar en este celular</button><p class="note"><a href="#" onclick="salir();return false" style="color:var(--mut)">¿No sos vos? Cambiar usuario</a></p></section>
 
 <section id="man" class="hide"><h1>Cómo usar la aplicación</h1><div class="card"><ol>
@@ -43,14 +43,18 @@ footer{text-align:center;color:var(--mut);font-size:.85rem;letter-spacing:.04em;
 <label>Centro de costo <span class="tag">automático · editable</span></label><select id="cc" onchange="manCC=true;aut()"></select>
 <label>Rubro <span class="tag">automático · editable</span></label><select id="rub" onchange="manRub=true"></select>
 <label>Motivo de la urgencia</label><div class="f"><textarea id="urg" placeholder="Hablá o escribí…"></textarea><button class="mic" data-t="urg" title="Dictar">🎙️</button></div>
+<label>Adjuntar archivo <span class="tag">opcional</span></label><input id="adj" type="file" accept="image/*,application/pdf"><p class="note" id="adjm" style="text-align:left;margin:6px 2px 0">PDF o foto, hasta 4 MB (presupuesto, imagen del producto, etc.).</p>
 <label>Autorizante</label><input id="aut" readonly placeholder="Se completa automáticamente"></div>
 <button class="btn" id="env" onclick="enviar()">Enviar solicitud</button><button class="btn g" onclick="go('home')">← Inicio</button><p class="note" id="msg"></p></section>
 
+<section id="pend" class="hide"><h1>Por autorizar</h1><p class="note" id="amsg"></p><div id="alist"></div><button class="btn g" onclick="refrescarPend()">🔄 Actualizar</button><button class="btn g" onclick="go('home')">← Inicio</button></section>
 <section id="dec" class="hide"><h1>Solicitud para autorizar</h1><div class="card"><p class="note" id="dst" style="text-align:left">Cargando…</p>
 <div id="ddata" class="hide"><label>Autoriza</label><div id="d1"></div><label>Solicitante</label><div id="d2"></div><label>Centro de costo</label><div id="d3"></div><label>Rubro</label><div id="d4"></div><label>Detalle</label><div id="d5"></div><label>Motivo de la urgencia</label><div id="d6"></div></div></div>
+<button class="btn g hide" id="dadj" onclick="verAdj('verAdjuntoTok',QS.get('id'),QS.get('t'))">📎 Ver adjunto</button>
 <div id="dbtn" class="hide"><button class="btn" onclick="decidirW('ok')">✅ Aprobar compra</button><button class="btn g" style="border-color:#ff7b8a;color:#ff7b8a" onclick="decidirW('no')">❌ No aprobar</button></div></section>
 <section id="done" class="hide"><div class="card ok"><div style="font-size:3rem">✅</div><h1>Solicitud enviada</h1><p class="s" id="dm"></p><button class="btn" onclick="location.reload()">Cargar otra</button></div></section>
-<footer>Compras y Logística Grupo Slots</footer><div style="text-align:center;font-size:.7rem;opacity:.45;padding-bottom:8px">v4 · 19/11</div></div>
+<footer>Compras y Logística Grupo Slots</footer><div style="text-align:center;font-size:.7rem;opacity:.45;padding-bottom:8px">v5 · 20/11</div></div>
+<div id="vis" class="hide" style="position:fixed;inset:0;background:rgba(2,24,30,.97);z-index:9;padding:16px;overflow:auto;text-align:center"><div id="visc"></div><button class="btn g" style="margin-top:14px" onclick="$('vis').classList.add('hide')">Cerrar</button></div>
 <script>
 const API="https://script.google.com/macros/s/AKfycbyBDVoSEJo52nSE-1P9SLwM1PMzF9-lRRmxbrusaGscaL3r-nwKnur1G0BhDhd2Pww/exec";
 const $=i=>document.getElementById(i),DOM=["gruposlots.com.ar","epic-hoteles.com.ar"];
@@ -58,13 +62,13 @@ const store={get:k=>{try{const v=localStorage.getItem(k);if(v)return v}catch(e){
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 const nombre=e=>e.split("@")[0].split(/[._-]/).filter(Boolean).map(w=>w[0].toUpperCase()+w.slice(1)).join(" ");
 let ES_AUT=false,OS_ID="",osOK=false,C=[],H=[],HT=[],EM=store.get("slots_email")||"",TK=store.get("slots_token")||"";
-function go(s){["reg","home","man","frm","done","dec"].forEach(i=>$(i).classList.toggle("hide",i!==s));scrollTo(0,0)}
-const QS=new URLSearchParams(location.search),SINAUTH=["verificarClave","verSolicitudApi","decidirApi"];
+function go(s){["reg","home","man","frm","done","dec","pend"].forEach(i=>$(i).classList.toggle("hide",i!==s));scrollTo(0,0)}
+const QS=new URLSearchParams(location.search),SINAUTH=["verificarClave","verSolicitudApi","decidirApi","verAdjuntoTok"];
 async function call(f,...a){const ac=new AbortController(),to=setTimeout(()=>ac.abort(),40000);
 try{const r=await fetch(API,{method:"POST",signal:ac.signal,headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({fn:f,args:SINAUTH.includes(f)?a:[EM,TK,...a]})});
 const j=await r.json();if(!j.ok){if(/AUTH/.test(j.error)){salir("Tu acceso venció. Ingresá de nuevo.");throw new Error("acceso vencido")}throw new Error(String(j.error).replace(/^Error: /,""))}return j.data}
 catch(e){if(e.name==="AbortError")throw new Error("el servidor tardó demasiado");throw e}finally{clearTimeout(to)}}
-function salir(msg){try{window.OneSignalDeferred&&OneSignalDeferred.push(o=>o.logout())}catch(e){}store.set("slots_email","");store.set("slots_token","");EM="";TK="";$("cl").value="";go("reg");if(msg)alert(msg)}
+function salir(msg){PEND=-1;try{window.OneSignalDeferred&&OneSignalDeferred.push(o=>o.logout())}catch(e){}store.set("slots_email","");store.set("slots_token","");EM="";TK="";$("cl").value="";go("reg");if(msg)alert(msg)}
 function aut(){const x=C.find(c=>c.c===$("cc").value);$("aut").value=x?x.a:""}
 const sin=s=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
 const STOP=new Set("para los las del con una uno por que necesito necesitamos quiero favor pedido compra comprar urgente unidades unidad villa mercedes hay falta".split(" "));
@@ -80,11 +84,47 @@ const top=o=>Object.entries(o).sort((a,b)=>b[1]-a[1])[0],c=top(sc),r=top(rb),d=R
 return{centro:c?c[0]:"",fuerte:c?c[1]:0,rubro:r?r[0]:(d?d[0]:"")}}
 async function cargar(){const r=await call("getCentros");C=r.centros;H=r.hist||[];ES_AUT=!!r.aut;OS_ID=r.os||"";HT=H.map(h=>toks(h[2]));
 $("cc").innerHTML='<option value="">— Elegí un centro de costo —</option>'+C.map(c=>`<option>${c.c}</option>`).join("");aut()}
-function entrar(){$("pbox").classList.toggle("hide",!(ES_AUT&&OS_ID));if(ES_AUT&&OS_ID)iniciarPush();else registrarSW();$("usr").value=nombre(EM)+" ("+EM+")";$("hi").textContent="Hola, "+nombre(EM).split(" ")[0]+". Cargá tu pedido con la voz.";go("home")}
+function entrar(){$("abox").classList.toggle("hide",!ES_AUT);if(ES_AUT)refrescarPend();$("pbox").classList.toggle("hide",!(ES_AUT&&OS_ID));if(ES_AUT&&OS_ID)iniciarPush();else registrarSW();$("usr").value=nombre(EM)+" ("+EM+")";$("hi").textContent="Hola, "+nombre(EM).split(" ")[0]+". Cargá tu pedido con la voz.";go("home")}
+const leer=f=>new Promise((ok,ko)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=()=>ko(new Error("No se pudo leer el archivo"));r.readAsDataURL(f)});
+async function prepararAdj(f){
+if(f.type==="application/pdf"){if(f.size>4e6)throw new Error("El PDF supera los 4 MB.");const d=await leer(f);return{nombre:f.name,tipo:f.type,b64:d.split(",")[1]}}
+if(f.type.startsWith("image/")){const url=await leer(f);const img=await new Promise((ok,ko)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>ko(new Error("No se pudo leer la imagen. Probá con JPG o PNG."));i.src=url});
+const k=Math.min(1,1600/Math.max(img.width,img.height)),cv=document.createElement("canvas");cv.width=Math.round(img.width*k);cv.height=Math.round(img.height*k);cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);
+const d=cv.toDataURL("image/jpeg",0.8);if(d.length*0.75>2.9e6)throw new Error("La imagen es muy pesada.");return{nombre:f.name.replace(/\.\w+$/,"")+".jpg",tipo:"image/jpeg",b64:d.split(",")[1]}}
+throw new Error("Solo se aceptan PDF o imágenes.")}
+async function verAdj(fn,id,t){const v=$("vis"),c=$("visc");c.textContent="Cargando archivo…";v.classList.remove("hide");
+try{const r=await call(fn,id,t);const bin=atob(r.b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);const url=URL.createObjectURL(new Blob([u],{type:r.tipo}));c.textContent="";
+const n=document.createElement("p");n.textContent=r.nombre;c.appendChild(n);
+if(r.tipo.startsWith("image/")){const im=document.createElement("img");im.src=url;im.style.cssText="max-width:100%;border-radius:12px";c.appendChild(im)}
+else{const a=document.createElement("a");a.href=url;a.target="_blank";a.className="btn";a.style.textDecoration="none";a.textContent="📄 Abrir PDF";c.appendChild(a)}}
+catch(e){c.textContent="No se pudo abrir el archivo ("+(e.message||e)+")"}}
+/* ---- bandeja del autorizante ---- */
+let LISTA=[],PEND=-1;
+const hace=ts=>{const m=Math.round((Date.now()-ts)/60000);return m<1?"recién":m<60?"hace "+m+" min":m<1440?"hace "+Math.round(m/60)+" h":"hace "+Math.round(m/1440)+" d"};
+function btnPend(){const n=LISTA.length;$("abtn").textContent="📥 Solicitudes por autorizar"+(n?" ("+n+")":"");$("abtn").className=n?"btn":"btn g"}
+async function refrescarPend(){if(!ES_AUT||!EM||!TK)return;try{const r=await call("pendientesAut");LISTA=r.lista;
+if(PEND>=0&&LISTA.length>PEND){try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}$("hi").textContent="🔔 Tenés una solicitud nueva por autorizar."}
+PEND=LISTA.length;btnPend();if(!$("pend").classList.contains("hide"))pintarPend()}catch(e){}}
+function abrirPend(){go("pend");pintarPend();refrescarPend()}
+function el(t,txt,cl){const x=document.createElement(t);if(txt)x.textContent=txt;if(cl)x.className=cl;return x}
+function pintarPend(){const box=$("alist");box.innerHTML="";$("amsg").textContent=LISTA.length?"":"✅ No tenés solicitudes pendientes.";
+LISTA.forEach(x=>{const c=el("div","","card");c.appendChild(el("b",x.centro));
+const m=el("p",x.solicitante+" · "+hace(x.ts)+(x.rubro?" · "+x.rubro:""),"note");m.style.textAlign="left";c.appendChild(m);
+c.appendChild(el("p",x.detalle));const u=el("p","Urgencia: "+x.urgencia,"note");u.style.textAlign="left";c.appendChild(u);
+if(x.adj){const b=el("button","📎 Ver adjunto","btn g");b.onclick=()=>verAdj("verAdjunto",x.id);c.appendChild(b)}
+const ok=el("button","✅ Aprobar compra","btn");ok.onclick=()=>decidirP(x,"ok",c);
+const no=el("button","❌ No aprobar","btn g");no.style.cssText="border-color:#ff7b8a;color:#ff7b8a";no.onclick=()=>decidirP(x,"no",c);
+c.appendChild(ok);c.appendChild(no);box.appendChild(c)})}
+async function decidirP(x,a,c){if(!confirm(a==="ok"?"¿Aprobar esta compra?":"¿No aprobar esta compra?"))return;
+c.querySelectorAll("button").forEach(b=>b.disabled=true);
+try{const r=await call("decidirAut",x.id,a);c.textContent="";c.appendChild(el("b",(r.estado==="Aprobada"?"✅ ":r.estado==="No aprobada"?"❌ ":"")+r.msg));
+LISTA=LISTA.filter(y=>y.id!==x.id);PEND=LISTA.length;btnPend();if(!LISTA.length)$("amsg").textContent="✅ No tenés solicitudes pendientes."}
+catch(e){c.querySelectorAll("button").forEach(b=>b.disabled=false);alert("No se pudo registrar ("+(e.message||e)+"). Reintentá.")}}
+setInterval(()=>{if(!document.hidden)refrescarPend()},45000);document.addEventListener("visibilitychange",()=>{if(!document.hidden)refrescarPend()});
 async function verDec(){go("dec");try{const r=await call("verSolicitudApi",QS.get("id"),QS.get("t"));
 if(r.estado!=="Pendiente"){$("dst").textContent="Esta solicitud ya fue resuelta: "+r.estado+".";return}
 $("d1").textContent=r.autoriza;$("d2").textContent=r.solicitante;$("d3").textContent=r.centro;$("d4").textContent=r.rubro||"—";$("d5").textContent=r.detalle;$("d6").textContent=r.urgencia;
-$("dst").textContent="Revisá los datos y elegí una opción.";$("ddata").classList.remove("hide");$("dbtn").classList.remove("hide")}
+if(r.adjunto)$("dadj").classList.remove("hide");$("dst").textContent="Revisá los datos y elegí una opción.";$("ddata").classList.remove("hide");$("dbtn").classList.remove("hide")}
 catch(e){$("dst").textContent="No se pudo abrir la solicitud ("+(e.message||e)+")."}}
 async function decidirW(a){$("dbtn").classList.add("hide");$("dst").textContent="Registrando…";
 try{const r=await call("decidirApi",QS.get("id"),QS.get("t"),a);$("ddata").classList.add("hide");$("dst").textContent=(r.ok?(r.estado==="Aprobada"?"✅ ":"❌ "):"")+r.msg}
@@ -114,7 +154,8 @@ rec.onerror=()=>{};rec.onend=()=>{b.classList.remove("on");rec=null;if(el.id==="
 async function enviar(){if(!$("cc").value&&$("mat").value.trim())await ia();
 const d={centro:$("cc").value,rubro:$("rub").value||"Otros",detalle:$("mat").value.trim(),urgencia:$("urg").value.trim()};
 if(!d.centro||!d.detalle||!d.urgencia){$("msg").textContent="Completá material, centro de costo y motivo de la urgencia.";return}
-$("env").disabled=true;try{const r=await call("enviarSolicitud",d);
+const fa=$("adj").files[0];if(fa){$("msg").textContent="Preparando archivo…";try{d.adjunto=await prepararAdj(fa)}catch(e){$("msg").textContent=e.message||String(e);return}}
+$("env").disabled=true;$("msg").textContent=fa?"Enviando con el archivo…":"";try{const r=await call("enviarSolicitud",d);
 $("dm").textContent=r.mail===false?"Tu solicitud quedó registrada. El aviso por mail a "+r.autorizante+" se demoró: Compras lo va a reenviar.":"Se envió a "+r.autorizante+" para su autorización.";go("done")}
 catch(e){$("msg").textContent="No se pudo enviar ("+(e.message||e)+"). Reintentá.";$("env").disabled=false}}
 let dp=null;addEventListener("beforeinstallprompt",e=>{e.preventDefault();dp=e;$("inst").classList.remove("hide")});
